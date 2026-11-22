@@ -30,7 +30,6 @@
   </a>
 </p>
 
-https://github.com/user-attachments/assets/738d2a02-3aee-43f0-9dff-531080ace201
 
 > **Research prototype.** AcuCare is not a medical device and must not be used for diagnosis or treatment decisions. See the [disclaimer](#disclaimer).
 
