@@ -25,7 +25,9 @@
 </p>
 
 <p align="center">
-  <a href="docs/demo/acucare_video_demo.mp4"><b>Watch the demo video</b></a>
+  <video width="700" controls>
+    <source src="docs/demo/acucare_video_demo.mp4" type="video/mp4">
+  </video>
 </p>
 
 > **Research prototype.** AcuCare is not a medical device and must not be used for diagnosis or treatment decisions. See the [disclaimer](#disclaimer).
