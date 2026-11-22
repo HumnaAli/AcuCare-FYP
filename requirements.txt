@@ -1,0 +1,11 @@
+flask
+numpy
+scipy
+opencv-python
+scikit-learn
+scikit-image
+scikit-fuzzy
+joblib
+matplotlib
+seaborn
+lightgbm

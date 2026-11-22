@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Acne Lesion Classifier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #preview-container {
+      position: relative;
+      display: inline-block;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
+    #preview-img {
+      display: block;
+      max-width: 400px;
+      max-height: 400px;
+    }
+    #crop-box {
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      border: 2px solid #0099ff;
+      cursor: move;
+      box-sizing: border-box;
+      background: rgba(0, 153, 255, 0.2);
+    }
+    #controls {
+      margin-top: 10px;
+    }
+    #results {
+      margin-top: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    #result-canvas {
+      display: none;
+    }
+    #cropped-img, #overlay-img {
+      border: 1px solid #ccc;
+      width: 150px;
+      height: 150px;
+      object-fit: cover;
+    }
+    #result-text {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    /* feature table styling */
+    #feature-table {
+      margin-top: 10px;
+      border-collapse: collapse;
+      width: 300px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: block;
+    }
+    #feature-table th, #feature-table td {
+      border: 1px solid #ddd;
+      padding: 4px 8px;
+      text-align: left;
+      font-size: 0.85em;
+    }
+    #feature-table th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+    }
+    #error-text {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Acne Lesion Classifier</h1>
+  <input type="file" id="file-input" accept="image/*" />
+
+  <div id="preview-container" style="display:none;">
+    <img id="preview-img" src="" alt="Preview" />
+    <div id="crop-box"></div>
+  </div>
+
+  <div id="controls">
+    <button id="classify-btn" disabled>Classify Crop</button>
+    <div id="error-text"></div>
+  </div>
+
+  <div id="results">
+    <div>
+      <p>Cropped Patch:</p>
+      <img id="cropped-img" src="" alt="Cropped Patch" style="display:none;" />
+    </div>
+    <div>
+      <p>Segmentation Overlay:</p>
+      <img id="overlay-img" src="" alt="Overlay" style="display:none;" />
+    </div>
+    <div>
+      <p>Classification:</p>
+      <div id="result-text"></div>
+      <table id="feature-table">
+        <thead>
+          <tr><th>Feature</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          <!-- filled in by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <canvas id="result-canvas" width="150" height="150"></canvas>
+
+  <script>
+    const featureNames = [
+      'contrast','correlation','energy','homogeneity',
+      'mean_L','std_L','mean_a','std_a','mean_b','std_b',
+      'area','perimeter','circularity','edge_density','lbp_variance',
+      // a*_histogram bins:
+      'a_hist_0','a_hist_1','a_hist_2','a_hist_3','a_hist_4','a_hist_5','a_hist_6','a_hist_7',
+      'a_hist_8','a_hist_9','a_hist_10','a_hist_11','a_hist_12','a_hist_13','a_hist_14','a_hist_15',
+      // LBP histogram bins:
+      'lbp_hist_0','lbp_hist_1','lbp_hist_2','lbp_hist_3','lbp_hist_4',
+      'lbp_hist_5','lbp_hist_6','lbp_hist_7','lbp_hist_8','lbp_hist_9'
+    ];
+
+    const fileInput    = document.getElementById("file-input");
+    const previewImg   = document.getElementById("preview-img");
+    const previewCont  = document.getElementById("preview-container");
+    const cropBox      = document.getElementById("crop-box");
+    const classifyBtn  = document.getElementById("classify-btn");
+    const resultCanvas = document.getElementById("result-canvas");
+    const croppedImg   = document.getElementById("cropped-img");
+    const overlayImg   = document.getElementById("overlay-img");
+    const resultText   = document.getElementById("result-text");
+    const featureTable = document.querySelector("#feature-table tbody");
+    const errorText    = document.getElementById("error-text");
+
+    let imgNaturalWidth = 0, imgNaturalHeight = 0;
+    let isDragging      = false;
+    let dragOffsetX     = 0, dragOffsetY    = 0;
+
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => previewImg.src = evt.target.result;
+      reader.readAsDataURL(file);
+      previewCont.style.display = "inline-block";
+      classifyBtn.disabled = true;
+      errorText.textContent = "";
+      resultText.textContent = "";
+      featureTable.innerHTML = "";
+      croppedImg.style.display = overlayImg.style.display = "none";
+    });
+
+    previewImg.addEventListener("load", () => {
+      imgNaturalWidth  = previewImg.naturalWidth;
+      imgNaturalHeight = previewImg.naturalHeight;
+      cropBox.style.left = cropBox.style.top = "0px";
+      cropBox.style.display = "block";
+      classifyBtn.disabled = false;
+    });
+
+    cropBox.addEventListener("mousedown", e => {
+      isDragging = true;
+      const rect = cropBox.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", e => {
+      if (!isDragging) return;
+      const pr = previewCont.getBoundingClientRect();
+      let x = e.clientX - pr.left - dragOffsetX;
+      let y = e.clientY - pr.top  - dragOffsetY;
+      x = Math.max(0, Math.min(x, previewImg.width - 150));
+      y = Math.max(0, Math.min(y, previewImg.height - 150));
+      cropBox.style.left = x + "px";
+      cropBox.style.top  = y + "px";
+    });
+    document.addEventListener("mouseup", () => isDragging = false);
+
+    classifyBtn.addEventListener("click", () => {
+      errorText.textContent = "";
+      resultText.textContent = "";
+      featureTable.innerHTML = "";
+      croppedImg.style.display = overlayImg.style.display = "none";
+
+      const dw = previewImg.width, dh = previewImg.height;
+      const sx = Math.round(parseFloat(cropBox.style.left) * imgNaturalWidth  / dw);
+      const sy = Math.round(parseFloat(cropBox.style.top ) * imgNaturalHeight / dh);
+      const sw = Math.round(150 * imgNaturalWidth  / dw);
+      const sh = Math.round(150 * imgNaturalHeight / dh);
+
+      const ctx = resultCanvas.getContext("2d");
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0,0,150,150);
+        ctx.drawImage(img, sx,sy,sw,sh, 0,0,150,150);
+        resultCanvas.toBlob(blob => {
+          const fd = new FormData();
+          fd.append("image", blob, "crop.png");
+          fetch("/predict", { method: "POST", body: fd })
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(data => {
+              croppedImg.src = resultCanvas.toDataURL();
+              croppedImg.style.display = "block";
+              overlayImg.src = data.overlay;
+              overlayImg.style.display = "block";
+              resultText.innerHTML = `
+                <p>Nodules: ${data.nodules.toFixed(1)}%</p>
+                <p>Papule: ${data.papule.toFixed(1)}%</p>
+                <p>Pustules: ${data.pustules.toFixed(1)}%</p>
+                <p><strong>Top: ${data.top}</strong></p>
+              `;
+              // populate feature table
+              featureTable.innerHTML = data.features.map((v,i) =>
+                `<tr><td>${featureNames[i]}</td><td>${v.toFixed(3)}</td></tr>`
+              ).join("");
+            })
+            .catch(err => {
+              console.error(err);
+              errorText.textContent = "Error during prediction.";
+            });
+        }, "image/png");
+      };
+      img.src = previewImg.src;
+    });
+  </script>
+</body>
+</html>
