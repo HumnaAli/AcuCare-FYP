@@ -442,7 +442,7 @@ healthcare professional.
 - **Humna Ali**
 - **Zuha Fatima**
 
-Contact: your.email@example.com
+Contact: humna.zaidi17@gmail.com
 
 ## Acknowledgements
 
