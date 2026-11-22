@@ -1,0 +1,9 @@
+              precision    recall  f1-score   support
+
+     nodules       0.83      0.54      0.66        35
+      papule       0.72      0.81      0.76        42
+    pustules       0.81      0.92      0.86        50
+
+    accuracy                           0.78       127
+   macro avg       0.79      0.76      0.76       127
+weighted avg       0.78      0.78      0.77       127
