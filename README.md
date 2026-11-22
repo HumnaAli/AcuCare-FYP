@@ -25,10 +25,12 @@
 </p>
 
 <p align="center">
-  <video width="700" controls>
-    <source src="docs/demo/acucare_video_demo.mp4" type="video/mp4">
-  </video>
+  <a href="https://github.com/user-attachments/assets/738d2a02-3aee-43f0-9dff-531080ace201">
+    <b>▶ Watch the AcuCare Demo Video</b>
+  </a>
 </p>
+
+https://github.com/user-attachments/assets/738d2a02-3aee-43f0-9dff-531080ace201
 
 > **Research prototype.** AcuCare is not a medical device and must not be used for diagnosis or treatment decisions. See the [disclaimer](#disclaimer).
 
